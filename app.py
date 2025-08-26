@@ -1,4 +1,4 @@
-# app.py - Simulador Monte Carlo listo para Streamlit Cloud
+# app.py - Simulador Monte Carlo optimizado para Streamlit Cloud
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -35,7 +35,7 @@ st.title("Simulador Financiero Monte Carlo")
 # Parámetros generales
 # =======================
 num_activos = st.number_input("Número de activos", min_value=1, value=1)
-num_simulaciones = st.number_input("Número de simulaciones por activo", min_value=100, value=1000)
+num_simulaciones = st.number_input("Número de simulaciones por activo", min_value=100, value=200)  # reducido
 inflacion = st.number_input("Inflación anual estimada (%)", value=3.0)/100
 tasa_impuestos = st.number_input("Tasa de impuestos anual (%)", value=10.0)/100
 
@@ -67,6 +67,25 @@ for i in range(num_activos):
     })
 
 # =======================
+# Función de simulación cacheada
+# =======================
+@st.cache_data
+def simular_activo(activo, num_simulaciones, inflacion, tasa_impuestos):
+    simulaciones = []
+    for s in range(num_simulaciones):
+        valores = [activo["capital"]]
+        for t in range(1, activo["años"]+1):
+            r = np.random.normal(activo["rendimiento"], activo["desviacion"])
+            ganancia = valores[-1]*r
+            impuestos = ganancia * tasa_impuestos
+            nuevo_valor = valores[-1] + ganancia - impuestos + activo["contribucion"]
+            valores.append(nuevo_valor)
+        simulaciones.append(valores[1:])
+    simulaciones = np.array(simulaciones)
+    finales_reales = simulaciones[:,-1]/((1+inflacion)**activo["años"])
+    return simulaciones, finales_reales
+
+# =======================
 # Ejecutar simulación
 # =======================
 if st.button("Ejecutar Simulación"):
@@ -74,19 +93,7 @@ if st.button("Ejecutar Simulación"):
     st.subheader("Gráficas por activo")
 
     for activo in activos:
-        simulaciones = []
-        for s in range(num_simulaciones):
-            valores = [activo["capital"]]
-            for t in range(1, activo["años"]+1):
-                r = np.random.normal(activo["rendimiento"], activo["desviacion"])
-                ganancia = valores[-1]*r
-                impuestos = ganancia * tasa_impuestos
-                nuevo_valor = valores[-1] + ganancia - impuestos + activo["contribucion"]
-                valores.append(nuevo_valor)
-            simulaciones.append(valores[1:])
-
-        simulaciones = np.array(simulaciones)
-        finales_reales = simulaciones[:,-1]/((1+inflacion)**activo["años"])
+        simulaciones, finales_reales = simular_activo(activo, num_simulaciones, inflacion, tasa_impuestos)
 
         # Estadísticas
         var_5 = np.percentile(finales_reales,5)
