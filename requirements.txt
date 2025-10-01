@@ -1,0 +1,9 @@
+
+Flask
+pandas
+numpy
+matplotlib
+scikit-learn
+scipy
+Pillow
+requests
